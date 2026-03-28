@@ -206,7 +206,6 @@ in
       pkgs.yazi
       pkgs.zig
       pkgs.zoxide
-      nixbar
     ];
     variables = {
       EDITOR = "hx";
@@ -232,6 +231,16 @@ in
       useBabelfish = true;
       babelfishPackage = pkgs.babelfish;
     };
+  };
+
+  launchd.user.agents.nixbar = {
+    command = toString (
+      pkgs.writeShellScript "launch-nixbar" ''
+        open ${nixbar}/Applications/NixBar.app
+      ''
+    );
+    serviceConfig.RunAtLoad = true;
+    serviceConfig.KeepAlive = false;
   };
 
   launchd.user.agents.sync-launchd-env = {

@@ -24,9 +24,7 @@ struct MenuBarView: View {
             footer
         }
         .padding(.vertical, 8)
-        .sheet(item: $selectedLog) { log in
-            LogDetailView(log: log)
-        }
+        .sheet(item: $selectedLog) { LogDetailView(log: $0) }
     }
 
     // MARK: - Header
@@ -36,10 +34,10 @@ struct MenuBarView: View {
             Image(systemName: "snowflake")
                 .font(.title2)
                 .foregroundStyle(.cyan)
+
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("NixBar")
-                        .font(.headline)
+                    Text("NixBar").font(.headline)
                     if !manager.generationNumber.isEmpty {
                         Text("Gen \(manager.generationNumber)")
                             .font(.caption2)
@@ -55,7 +53,9 @@ struct MenuBarView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+
             Spacer()
+
             VStack(alignment: .trailing, spacing: 2) {
                 if !manager.storeSize.isEmpty {
                     Label(manager.storeSize, systemImage: "internaldrive")
@@ -77,7 +77,15 @@ struct MenuBarView: View {
 
     private var statusDashboard: some View {
         VStack(spacing: 8) {
-            // Pending changes
+            pendingChangesBanner
+            flakeInputsDisclosure
+            lastResultStatus
+        }
+        .padding(.vertical, 6)
+    }
+
+    private var pendingChangesBanner: some View {
+        Group {
             if !manager.pendingChanges.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "pencil.circle.fill")
@@ -93,9 +101,7 @@ struct MenuBarView: View {
                             .lineLimit(1)
                     }
                     Spacer()
-                    Button {
-                        Task { await manager.rebuild() }
-                    } label: {
+                    Button { Task { await manager.rebuild() } } label: {
                         Text("Rebuild")
                             .font(.caption2.bold())
                             .padding(.horizontal, 8)
@@ -110,8 +116,11 @@ struct MenuBarView: View {
                 .background(.orange.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
                 .padding(.horizontal, 12)
             }
+        }
+    }
 
-            // Flake inputs summary
+    private var flakeInputsDisclosure: some View {
+        Group {
             if !manager.flakeInputs.isEmpty {
                 DisclosureGroup(isExpanded: $showFlakeInputs) {
                     VStack(spacing: 2) {
@@ -135,8 +144,7 @@ struct MenuBarView: View {
                         Image(systemName: "lock.shield")
                             .font(.caption)
                             .foregroundStyle(.purple)
-                        Text("\(manager.flakeInputs.count) flake inputs")
-                            .font(.caption)
+                        Text("\(manager.flakeInputs.count) flake inputs").font(.caption)
                         if let oldest = oldestInput {
                             Text("oldest: \(oldest.age)")
                                 .font(.caption2)
@@ -147,15 +155,17 @@ struct MenuBarView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
             }
+        }
+    }
 
-            // Last result status
+    private var lastResultStatus: some View {
+        Group {
             if let lastLog = manager.logs.first, !manager.isRunning {
                 HStack(spacing: 6) {
                     Image(systemName: lastLog.success ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .foregroundStyle(lastLog.success ? .green : .red)
                         .font(.caption)
-                    Text(lastLog.task)
-                        .font(.caption2)
+                    Text(lastLog.task).font(.caption2)
                     Text(lastLog.success ? "succeeded" : "failed")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -168,7 +178,6 @@ struct MenuBarView: View {
                 .padding(.vertical, 4)
             }
         }
-        .padding(.vertical, 6)
     }
 
     private var oldestInput: FlakeInput? {
@@ -183,16 +192,14 @@ struct MenuBarView: View {
         return .red
     }
 
-    // MARK: - Running state
+    // MARK: - Running View
 
     private var runningView: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                ProgressView()
-                    .controlSize(.small)
+                ProgressView().controlSize(.small)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(manager.currentTask)
-                        .font(.subheadline.bold())
+                    Text(manager.currentTask).font(.subheadline.bold())
                     if !manager.currentPhase.isEmpty {
                         Text(manager.currentPhase)
                             .font(.caption2)
@@ -203,16 +210,12 @@ struct MenuBarView: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(formatElapsed(manager.elapsedTime))
+                    Text(elapsedTimeString(manager.elapsedTime))
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                    Button {
-                        manager.cancelTask()
-                    } label: {
-                        Text("Cancel")
-                            .font(.caption2)
-                            .foregroundStyle(.red)
+                    Button { manager.cancelTask() } label: {
+                        Text("Cancel").font(.caption2).foregroundStyle(.red)
                     }
                     .buttonStyle(.plain)
                 }
@@ -229,9 +232,7 @@ struct MenuBarView: View {
                         Color.clear.frame(height: 1).id("bottom")
                     }
                     .onChange(of: manager.liveOutput) {
-                        withAnimation {
-                            proxy.scrollTo("bottom", anchor: .bottom)
-                        }
+                        withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
                     }
                 }
                 .frame(maxHeight: 140)
@@ -243,51 +244,39 @@ struct MenuBarView: View {
         .padding(.vertical, 12)
     }
 
-    private func formatElapsed(_ t: TimeInterval) -> String {
-        let m = Int(t) / 60
-        let s = Int(t) % 60
-        return String(format: "%d:%02d", m, s)
+    private func elapsedTimeString(_ t: TimeInterval) -> String {
+        String(format: "%d:%02d", Int(t) / 60, Int(t) % 60)
     }
 
-    // MARK: - Action buttons
+    // MARK: - Action Buttons
 
     private var actionButtons: some View {
         VStack(spacing: 2) {
-            ActionButton(
-                title: "Update All",
-                subtitle: "flake + brew + rebuild",
-                icon: "arrow.trianglehead.2.clockwise.rotate.90",
-                tint: .cyan
-            ) {
+            ActionButton(title: "Update All", subtitle: "flake + brew + rebuild",
+                         icon: "arrow.trianglehead.2.clockwise.rotate.90", tint: .cyan) {
                 Task { await manager.updateAll() }
             }
-            ActionButton(title: "Rebuild", subtitle: "darwin-rebuild switch", icon: "hammer", tint: .blue)
-            {
+            ActionButton(title: "Rebuild", subtitle: "darwin-rebuild switch",
+                         icon: "hammer", tint: .blue) {
                 Task { await manager.rebuild() }
             }
-            ActionButton(
-                title: "Update Flake", subtitle: "nix flake update", icon: "arrow.down.circle",
-                tint: .purple
-            ) {
+            ActionButton(title: "Update Flake", subtitle: "nix flake update",
+                         icon: "arrow.down.circle", tint: .purple) {
                 Task { await manager.updateFlake() }
             }
-            ActionButton(
-                title: "Brew Update", subtitle: "update & upgrade", icon: "mug", tint: .orange
-            ) {
+            ActionButton(title: "Brew Update", subtitle: "update & upgrade",
+                         icon: "mug", tint: .orange) {
                 Task { await manager.brewUpdate() }
             }
-            ActionButton(
-                title: "Garbage Collect", subtitle: "nix-collect-garbage -d", icon: "trash",
-                tint: .red
-            ) {
+            ActionButton(title: "Garbage Collect", subtitle: "nix-collect-garbage -d",
+                         icon: "trash", tint: .red) {
                 Task { await manager.garbageCollect() }
             }
 
             Divider().padding(.vertical, 4)
 
-            ActionButton(
-                title: "Edit Config", subtitle: "~/.nixpkgs", icon: "doc.text", tint: .secondary
-            ) {
+            ActionButton(title: "Edit Config", subtitle: "~/.nixpkgs",
+                         icon: "doc.text", tint: .secondary) {
                 manager.editConfig()
             }
         }
@@ -346,123 +335,12 @@ struct MenuBarView: View {
 
             Spacer()
 
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .buttonStyle(.plain)
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            Button("Quit") { NSApplication.shared.terminate(nil) }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
-    }
-}
-
-// MARK: - Components
-
-struct ActionButton: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-    let tint: Color
-    let action: () -> Void
-
-    @State private var isHovered = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .frame(width: 20)
-                    .foregroundStyle(tint)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.subheadline)
-                    Text(subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                isHovered ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear),
-                in: RoundedRectangle(cornerRadius: 6))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-    }
-}
-
-struct LogRow: View {
-    let log: TaskLog
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(log.success ? .green : .red)
-                .frame(width: 6, height: 6)
-            Text(log.task)
-                .font(.caption)
-            Spacer()
-            Text(formatDuration(log.duration))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(log.date, style: .relative)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
-        .background(.clear, in: RoundedRectangle(cornerRadius: 4))
-        .contentShape(Rectangle())
-    }
-
-    private func formatDuration(_ d: TimeInterval) -> String {
-        if d < 60 { return String(format: "%.0fs", d) }
-        return String(format: "%.0fm%.0fs", d / 60, d.truncatingRemainder(dividingBy: 60))
-    }
-}
-
-struct LogDetailView: View {
-    let log: TaskLog
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Circle()
-                    .fill(log.success ? .green : .red)
-                    .frame(width: 8, height: 8)
-                Text(log.task)
-                    .font(.headline)
-                Spacer()
-                Text(log.date, format: .dateTime.hour().minute().second())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            ScrollView {
-                Text(log.output)
-                    .font(.system(size: 11, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .padding(8)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
-
-            HStack {
-                Spacer()
-                Button("Close") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-            }
-        }
-        .padding()
-        .frame(width: 500, height: 400)
     }
 }
