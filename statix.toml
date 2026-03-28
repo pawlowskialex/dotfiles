@@ -1,0 +1,4 @@
+nix_version = "2.4"
+
+[globset]
+ignore = ["nixbar/**"]
