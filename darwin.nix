@@ -118,8 +118,13 @@ in
 
   homebrew = {
     enable = true;
+    onActivation = {
+      autoUpdate = true;
+      upgrade = true;
+      cleanup = "uninstall";
+    };
+    greedyCasks = true;
     casks = [
-      "apparency"
       "1password"
       "apparency"
       "balenaetcher"
