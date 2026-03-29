@@ -4,22 +4,23 @@ struct MenuBarView: View {
     @ObservedObject var manager: NixManager
     @State private var selectedLog: TaskLog?
     @State private var showFlakeInputs = false
+    @State private var terminalInput = ""
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
 
-            if manager.isRunning {
-                runningView
+            if manager.showTerminal {
+                terminalView
             } else {
                 statusDashboard
                 Divider()
                 actionButtons
+                Divider()
+                historySection
             }
 
-            Divider()
-            historySection
             Divider()
             footer
         }
@@ -192,21 +193,46 @@ struct MenuBarView: View {
         return .red
     }
 
-    // MARK: - Running View
+    // MARK: - Terminal View (running + completed)
 
-    private var runningView: some View {
+    private var terminalView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            terminalHeader
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Text(manager.liveOutput.isEmpty ? " " : String(manager.liveOutput.suffix(2000)))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                    Color.clear.frame(height: 1).id("bottom")
+                }
+                .onChange(of: manager.liveOutput) {
+                    proxy.scrollTo("bottom", anchor: .bottom)
+                }
+            }
+            .frame(height: 260)
+            .padding(8)
+            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+
+            if manager.isRunning {
+                terminalInputField
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var terminalHeader: some View {
+        HStack {
+            if manager.isRunning {
                 ProgressView().controlSize(.small)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(manager.currentTask).font(.subheadline.bold())
-                    if !manager.currentPhase.isEmpty {
-                        Text(manager.currentPhase)
-                            .font(.caption2)
-                            .foregroundStyle(.cyan)
-                            .transition(.push(from: .bottom))
-                            .animation(.easeInOut(duration: 0.3), value: manager.currentPhase)
-                    }
+                    Text(manager.currentPhase.isEmpty ? " " : manager.currentPhase)
+                        .font(.caption2)
+                        .foregroundStyle(.cyan)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
@@ -219,29 +245,61 @@ struct MenuBarView: View {
                     }
                     .buttonStyle(.plain)
                 }
-            }
-
-            if !manager.liveOutput.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        Text(manager.liveOutput.suffix(2000))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                        Color.clear.frame(height: 1).id("bottom")
-                    }
-                    .onChange(of: manager.liveOutput) {
-                        withAnimation { proxy.scrollTo("bottom", anchor: .bottom) }
-                    }
+            } else {
+                let succeeded = manager.status == .success
+                Image(systemName: succeeded ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundStyle(succeeded ? .green : .red)
+                Text(manager.currentTask)
+                    .font(.subheadline.bold())
+                Text(succeeded ? "succeeded" : "failed")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if let log = manager.logs.first {
+                    Text("(\(log.duration.formattedDuration))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .frame(maxHeight: 140)
-                .padding(8)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 6))
+                Spacer()
+                Button { manager.dismissTerminal() } label: {
+                    Text("Dismiss")
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.quaternary, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+    }
+
+    private var terminalInputField: some View {
+        let isPasswordPrompt = manager.liveOutput.suffix(150)
+            .localizedCaseInsensitiveContains("password:")
+
+        return HStack(spacing: 6) {
+            Image(systemName: isPasswordPrompt ? "lock.fill" : "chevron.right")
+                .font(.system(size: 10))
+                .foregroundStyle(isPasswordPrompt ? Color.orange : Color.secondary)
+                .frame(width: 14)
+
+            if isPasswordPrompt {
+                SecureField("Password…", text: $terminalInput)
+                    .font(.system(size: 11, design: .monospaced))
+                    .onSubmit { submitTerminalInput() }
+            } else {
+                TextField("Send input…", text: $terminalInput)
+                    .font(.system(size: 11, design: .monospaced))
+                    .onSubmit { submitTerminalInput() }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func submitTerminalInput() {
+        manager.sendInput(terminalInput)
+        terminalInput = ""
     }
 
     private func elapsedTimeString(_ t: TimeInterval) -> String {
@@ -301,16 +359,13 @@ struct MenuBarView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
 
-                ScrollView {
-                    VStack(spacing: 2) {
-                        ForEach(manager.logs.prefix(10)) { log in
-                            LogRow(log: log)
-                                .onTapGesture { selectedLog = log }
-                        }
+                VStack(spacing: 2) {
+                    ForEach(Array(manager.logs.prefix(10))) { log in
+                        LogRow(log: log)
+                            .onTapGesture { selectedLog = log }
                     }
-                    .padding(.horizontal, 8)
                 }
-                .frame(maxHeight: 150)
+                .padding(.horizontal, 8)
             }
         }
         .padding(.bottom, 4)
@@ -324,7 +379,7 @@ struct MenuBarView: View {
                 Task {
                     await manager.refreshInfo()
                     await manager.checkPendingChanges()
-                    await manager.loadFlakeInputs()
+                    manager.loadFlakeInputs()
                 }
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
@@ -332,6 +387,13 @@ struct MenuBarView: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+
+            Spacer()
+
+            // DEBUG: verify log population
+            Text("\(manager.logs.count) logs")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
 
             Spacer()
 

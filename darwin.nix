@@ -236,7 +236,9 @@ in
   launchd.user.agents.nixbar = {
     command = toString (
       pkgs.writeShellScript "launch-nixbar" ''
-        open ${nixbar}/Applications/NixBar.app
+        while [ ! -d /nix/store ]; do sleep 1; done
+        export PATH='${resolvedSystemPath}'
+        exec ${nixbar}/Applications/NixBar.app/Contents/MacOS/NixBar
       ''
     );
     serviceConfig.RunAtLoad = true;

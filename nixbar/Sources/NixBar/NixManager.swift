@@ -1,15 +1,14 @@
 import Foundation
+import OSLog
 import SwiftUI
 import UserNotifications
-import OSLog
 
 private let log = Logger(subsystem: "com.alex.nixbar", category: "NixManager")
-
-typealias Manager = NixManager
 
 @MainActor
 final class NixManager: ObservableObject {
     @Published var isRunning = false
+    @Published var showTerminal = false
     @Published var currentTask = ""
     @Published var currentPhase = ""
     @Published var liveOutput = ""
@@ -25,73 +24,38 @@ final class NixManager: ObservableObject {
 
     private let configPath = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".nixpkgs").path
-    private let executor: ShellExecutor
-    private var runningProcess: Process?
-    private var timer: Timer?
-    private var refreshTimer: Timer?
+    private let executor = ShellExecutor()
+    private var refreshTask: Task<Void, Never>?
 
     init() {
-        executor = ShellExecutor()
-
-        Task { @MainActor [weak self] in
-            self?.executor.onLiveOutput = { output, phase in
-                Task { @MainActor [weak self] in
-                    self?.liveOutput = output
-                    self?.currentPhase = phase
-                }
-            }
-        }
-
         Task {
             await refreshInfo()
             await checkPendingChanges()
-            await loadFlakeInputs()
+            loadFlakeInputs()
         }
         requestNotificationPermission()
         startPeriodicRefresh()
     }
 
-    deinit {
-        refreshTimer?.invalidate()
-    }
+    deinit { refreshTask?.cancel() }
 
     // MARK: - Actions
 
     func rebuild() async {
-        await runTask("Rebuild (build)", privileged: false, command: """
-            nix --extra-experimental-features 'nix-command flakes' build --json --no-link \
-            -- \(configPath)#darwinConfigurations.alex.system 2>&1
-            """)
-        guard let lastLog = logs.first, lastLog.success else { return }
-
-        let output = lastLog.output.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let jsonStart = output.lastIndex(of: "["),
-              let data = String(output[jsonStart...]).data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-              let storePath = (json.first?["outputs"] as? [String: String])?["out"]
-        else {
-            logs.insert(TaskLog(task: "Rebuild", output: "Failed to parse build output:\n\(output)",
-                                success: false, duration: 0, date: Date()), at: 0)
-            status = .failure
-            return
-        }
-
-        log.info("rebuild: built \(storePath)")
-        await runTask("Rebuild (activate)", privileged: true,
-                      command: "nix-env -p /nix/var/nix/profiles/system --set \(storePath) && \(storePath)/activate")
+        await runTask("Rebuild", command: "sudo darwin-rebuild switch --flake \(configPath)#alex")
         await refreshInfo()
         await checkPendingChanges()
     }
 
     func updateFlake() async {
-        await runTask("Flake Update", privileged: false,
-                      command: "nix flake update --flake \(configPath) 2>&1")
-        await loadFlakeInputs()
+        await runTask("Flake Update", command: "nix flake update --flake \(configPath) 2>&1")
+        loadFlakeInputs()
     }
 
     func brewUpdate() async {
-        await runTask("Brew Update", privileged: false,
-                      command: "/opt/homebrew/bin/brew update && /opt/homebrew/bin/brew upgrade 2>&1")
+        await runTask(
+            "Brew Update",
+            command: "/opt/homebrew/bin/brew update && /opt/homebrew/bin/brew upgrade 2>&1")
     }
 
     func updateAll() async {
@@ -103,7 +67,7 @@ final class NixManager: ObservableObject {
     }
 
     func garbageCollect() async {
-        await runTask("Garbage Collect", privileged: true, command: "nix-collect-garbage -d")
+        await runTask("Garbage Collect", command: "sudo nix-collect-garbage -d")
         await refreshInfo()
     }
 
@@ -114,9 +78,17 @@ final class NixManager: ObservableObject {
         try? p.run()
     }
 
-    func cancelTask() {
-        runningProcess?.terminate()
-        runningProcess = nil
+    func cancelTask() { executor.cancel() }
+
+    func dismissTerminal() {
+        showTerminal = false
+        liveOutput = ""
+        currentTask = ""
+        currentPhase = ""
+    }
+
+    func sendInput(_ text: String) {
+        executor.sendInput(text + "\n")
     }
 
     // MARK: - Info Refresh
@@ -124,113 +96,98 @@ final class NixManager: ObservableObject {
     func refreshInfo() async {
         let genInfo = await executor.runSimple(
             "readlink /nix/var/nix/profiles/system 2>/dev/null"
-        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        ).trimmed
 
-        if !genInfo.isEmpty,
-           let match = genInfo.range(of: #"\d+"#, options: .regularExpression) {
+        if let match = genInfo.range(of: #"\d+"#, options: .regularExpression) {
             generationNumber = String(genInfo[match])
             let ts = await executor.runSimple(
                 "stat -f '%m' /nix/var/nix/profiles/system 2>/dev/null"
-            ).trimmingCharacters(in: .whitespacesAndNewlines)
+            ).trimmed
             if let t = Double(ts) { lastRebuild = Date(timeIntervalSince1970: t) }
         }
 
         storeSize = await executor.runSimple(
             "du -sh /nix/store 2>/dev/null | cut -f1"
-        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        ).trimmed
 
         packageCount = await executor.runSimple(
             "ls /run/current-system/sw/bin 2>/dev/null | wc -l | tr -d ' '"
-        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        ).trimmed
     }
 
     func checkPendingChanges() async {
         let changes = await executor.runSimple(
             "cd \(configPath) && git diff --name-only 2>/dev/null && git diff --cached --name-only 2>/dev/null"
-        ).trimmingCharacters(in: .whitespacesAndNewlines)
-
+        ).trimmed
         pendingChanges = changes.isEmpty
             ? []
-            : Array(Set(changes.components(separatedBy: "\n").filter { !$0.isEmpty }))
+            : Array(Set(changes.split(separator: "\n").map(String.init)))
     }
 
-    func loadFlakeInputs() async {
-        let lockContent = await executor.runSimple("cat \(configPath)/flake.lock 2>/dev/null")
-        guard !lockContent.isEmpty,
-              let data = lockContent.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let nodes = json["nodes"] as? [String: Any]
+    func loadFlakeInputs() {
+        let url = URL(fileURLWithPath: configPath).appendingPathComponent("flake.lock")
+        guard let data = try? Data(contentsOf: url),
+              let lock = try? JSONDecoder().decode(FlakeLock.self, from: data)
         else { return }
-
-        let now = Date()
-        flakeInputs = nodes.compactMap { name, value -> FlakeInput? in
-            guard name != "root",
-                  let node = value as? [String: Any],
-                  let locked = node["locked"] as? [String: Any],
-                  let lastMod = locked["lastModified"] as? Int
-            else { return nil }
-            let date = Date(timeIntervalSince1970: Double(lastMod))
-            return FlakeInput(name: name, lastModified: date, age: ageString(from: date, relativeTo: now))
-        }
-        .sorted { $0.name < $1.name }
+        flakeInputs = lock.inputs()
     }
 
-    // MARK: - Task Execution (deduplicated)
+    // MARK: - Task Execution
 
-    private func runTask(_ task: String, privileged: Bool, command: String) async {
+    private func runTask(_ task: String, command: String) async {
         isRunning = true
+        showTerminal = true
         currentTask = task
-        currentPhase = privileged ? "Waiting for authorization..." : ""
+        currentPhase = ""
         liveOutput = ""
         elapsedTime = 0
         status = .running
         let start = Date()
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                guard self.isRunning else { return }
-                self.elapsedTime = Date().timeIntervalSince(start)
+        let timerTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard isRunning else { break }
+                elapsedTime = Date().timeIntervalSince(start)
             }
         }
 
-        let (output, success): (String, Bool)
-        if privileged {
-            (output, success) = await executor.runPrivileged(command)
-        } else {
-            (output, success) = await executor.run(command)
+        var finalOutput = ""
+        var success = false
+
+        for await event in executor.run(command) {
+            switch event {
+            case .output(let text, let phase):
+                liveOutput = text
+                if !phase.isEmpty { currentPhase = phase }
+            case .finished(let output, let ok):
+                finalOutput = output
+                success = ok
+            }
         }
 
-        timer?.invalidate()
-        timer = nil
+        timerTask.cancel()
 
         let duration = Date().timeIntervalSince(start)
-        logs.insert(TaskLog(task: task, output: output, success: success, duration: duration, date: Date()), at: 0)
+        logs.insert(
+            TaskLog(task: task, output: finalOutput, success: success, duration: duration, date: .now),
+            at: 0)
         if logs.count > 50 { logs = Array(logs.prefix(50)) }
 
         status = success ? .success : .failure
-        currentTask = ""
-        currentPhase = ""
         isRunning = false
-        runningProcess = nil
-
         sendNotification(title: task, success: success, duration: duration)
-
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 30_000_000_000)
-            if self?.isRunning == false { self?.status = .idle }
-        }
     }
 
     // MARK: - Periodic Refresh
 
     private func startPeriodicRefresh() {
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                guard !self.isRunning else { return }
-                await self.refreshInfo()
-                await self.checkPendingChanges()
+        refreshTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(300))
+                guard !isRunning else { continue }
+                await refreshInfo()
+                await checkPendingChanges()
             }
         }
     }
@@ -247,11 +204,14 @@ final class NixManager: ObservableObject {
         let content = UNMutableNotificationContent()
         content.title = success ? "\(title) Completed" : "\(title) Failed"
         content.body = success
-            ? "Finished in \(formatDuration(duration))"
-            : "Task failed after \(formatDuration(duration)). Click to view details."
+            ? "Finished in \(duration.formattedDuration)"
+            : "Task failed after \(duration.formattedDuration). Click to view details."
         content.sound = success ? .default : .defaultCritical
         UNUserNotificationCenter.current().add(
-            UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        )
+            UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
+}
+
+private extension String {
+    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }

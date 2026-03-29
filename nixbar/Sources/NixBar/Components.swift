@@ -50,7 +50,7 @@ struct LogRow: View {
                 .frame(width: 6, height: 6)
             Text(log.task).font(.caption)
             Spacer()
-            Text(formatDuration(log.duration))
+            Text(log.duration.formattedDuration)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(log.date, style: .relative)

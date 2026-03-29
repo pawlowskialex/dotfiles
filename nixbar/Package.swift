@@ -5,6 +5,14 @@ let package = Package(
     name: "NixBar",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "NixBar"),
+        .target(
+            name: "CTerminal",
+            path: "Sources/CTerminal",
+            publicHeadersPath: "include"
+        ),
+        .executableTarget(
+            name: "NixBar",
+            dependencies: ["CTerminal"]
+        ),
     ]
 )
