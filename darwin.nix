@@ -15,12 +15,14 @@ let
   resolvedSystemPath =
     replaceStrings [ "$HOME" "$USER" ] [ user.home user.name ]
       config.environment.systemPath;
-  commonShellInit = shell: ''
-    eval "$(${pkgs.starship}/bin/starship init ${shell})"
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-    eval "$(${pkgs.zoxide}/bin/zoxide init ${shell})"
-    eval "$(${pkgs.mise}/bin/mise activate ${shell})"
-  '';
+  commonShellInit =
+    shell:
+    lib.concatMapStrings (cmd: ''eval "$(${cmd})"'' + "\n") [
+      "/opt/homebrew/bin/brew shellenv"
+      "${pkgs.starship}/bin/starship init ${shell}"
+      "${pkgs.zoxide}/bin/zoxide init ${shell}"
+      "${pkgs.mise}/bin/mise activate ${shell}"
+    ];
 in
 {
   nix = {
@@ -179,8 +181,8 @@ in
       pkgs.binwalk
       pkgs._1password-cli
       pkgs.coreutils
-      pkgs.delta
       pkgs.devbox
+      pkgs.delta
       pkgs.direnv
       pkgs.docker
       pkgs.eza

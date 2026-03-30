@@ -60,12 +60,13 @@
       };
     };
 
+    bash.enable = true;
+    zsh.enable = true;
+
     fish = {
       enable = true;
       shellAliases = {
         cat = "${pkgs.bat}/bin/bat";
-        ls = "${pkgs.eza}/bin/eza --icons --group-directories-first";
-        ll = "${pkgs.eza}/bin/eza -la --icons --git --group-directories-first";
         tree = "${pkgs.eza}/bin/eza --tree --icons";
       };
       shellInit = ''
@@ -76,7 +77,6 @@
       interactiveShellInit = ''
         /opt/homebrew/bin/brew shellenv fish | source
         source ~/.orbstack/shell/init2.fish 2>/dev/null || true
-        ${pkgs.mise}/bin/mise activate fish | source
         bind \co 'zi; commandline -f repaint'
       '';
     };
@@ -149,6 +149,19 @@
       };
     };
 
+    mise = {
+      enable = true;
+      enableFishIntegration = true;
+    };
+
+    eza = {
+      enable = true;
+      enableFishIntegration = true;
+      icons = "auto";
+      git = true;
+      extraOptions = [ "--group-directories-first" ];
+    };
+
     direnv = {
       enable = true;
       nix-direnv.enable = true;
@@ -180,7 +193,7 @@
         openrouter = {
           provider = "self-hosted";
           server = "https://openrouter.ai/api/v1";
-          model = "minimax/minimax-m2.7";
+          model = "stepfun/step-3.5-flash";
         };
       };
       secrets = {
