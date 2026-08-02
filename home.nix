@@ -17,14 +17,12 @@
       includes = [
         "~/.orbstack/ssh/config"
       ];
-      matchBlocks = {
+      settings = {
         "*" = {
-          extraOptions = {
-            IdentityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
-          };
+          IdentityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
         };
         "*.github.com" = {
-          hostname = "%h";
+          HostName = "%h";
         };
       };
     };
@@ -127,6 +125,8 @@
     fzf = {
       enable = true;
       enableFishIntegration = true;
+      # Atuin owns Ctrl-R; leave fzf's history widget unbound.
+      historyWidget.command = "";
       defaultCommand = "${pkgs.fd}/bin/fd --type f --hidden --exclude .git";
       defaultOptions = [
         "--height 40%"
