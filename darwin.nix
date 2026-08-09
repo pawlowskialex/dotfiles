@@ -1,7 +1,6 @@
 {
   config,
   inputs,
-  nixbar,
   pkgs,
   lib,
   ...
@@ -175,6 +174,7 @@ in
     systemPackages = [
       pkgs.atuin
       pkgs.bat
+      pkgs.bazelisk
       pkgs.bcftools
       pkgs.binwalk
       pkgs._1password-cli
@@ -236,18 +236,6 @@ in
       useBabelfish = true;
       babelfishPackage = pkgs.babelfish;
     };
-  };
-
-  launchd.user.agents.nixbar = {
-    command = toString (
-      pkgs.writeShellScript "launch-nixbar" ''
-        while [ ! -d /nix/store ]; do sleep 1; done
-        export PATH='${resolvedSystemPath}'
-        exec ${nixbar}/Applications/NixBar.app/Contents/MacOS/NixBar
-      ''
-    );
-    serviceConfig.RunAtLoad = true;
-    serviceConfig.KeepAlive = false;
   };
 
   launchd.user.agents.sync-launchd-env = {

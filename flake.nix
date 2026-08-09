@@ -45,10 +45,8 @@
       system = "aarch64-darwin";
       pkgs = nixpkgs.legacyPackages.${system};
       treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
-      nixbar = pkgs.callPackage ./nixbar/package.nix { };
     in
     {
-      packages.${system}.nixbar = nixbar;
       darwinConfigurations = {
         alex = darwin.lib.darwinSystem {
           inherit system;
@@ -56,7 +54,7 @@
             home-manager.darwinModules.home-manager
             ./darwin.nix
           ];
-          specialArgs = { inherit inputs nixpkgs nixbar; };
+          specialArgs = { inherit inputs nixpkgs; };
         };
       };
 
@@ -69,7 +67,7 @@
           touch $out
         '';
         deadnix = pkgs.runCommand "deadnix" { nativeBuildInputs = [ pkgs.deadnix ]; } ''
-          deadnix --fail --exclude ${self}/nixbar ${self}
+          deadnix --fail ${self}
           touch $out
         '';
       };

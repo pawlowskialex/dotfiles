@@ -3,4 +3,3 @@ result
 result-*
 .direnv/
 .claude/
-nixbar/.build/
