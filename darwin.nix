@@ -25,12 +25,22 @@ let
 in
 {
   nix = {
+    # Disable nix-channel entirely; <nixpkgs> comes from the flake input.
+    # Without this, processes that don't inherit the shell's NIX_PATH fall
+    # back to root's stale channel profile from the pre-flake install.
+    channel.enable = false;
     nixPath = [
       "nixpkgs=${inputs.nixpkgs}"
       "darwin=${inputs.darwin}"
     ];
     package = pkgs.nixVersions.stable;
     settings = {
+      # Same pin at the daemon level (nix.conf), so it applies even when
+      # NIX_PATH is not set in the environment.
+      nix-path = [
+        "nixpkgs=${inputs.nixpkgs}"
+        "darwin=${inputs.darwin}"
+      ];
       "trusted-users" = [
         "alex"
         "root"
@@ -126,17 +136,17 @@ in
     };
     greedyCasks = true;
     casks = [
-      "1password"
+      "1password@beta"
       "apparency"
       "balenaetcher"
-      "bambu-studio"
       "betterdisplay"
+      "bitwarden"
       "blackhole-16ch"
       "blackhole-2ch"
       "brave-browser"
+      "claude-code"
       "claude"
       "font-iosevka-nerd-font"
-      "freecad"
       "ghostty"
       "handbrake-app"
       "hex-fiend"
@@ -155,6 +165,7 @@ in
       "signal"
       "slack"
       "spotify"
+      "stablyai/orca/orca"
       "steermouse"
       "suspicious-package"
       "syntax-highlight"
@@ -172,15 +183,17 @@ in
   environment = {
     shells = [ pkgs.fish ];
     systemPackages = [
+      pkgs._1password-cli
       pkgs.atuin
       pkgs.bat
       pkgs.bazelisk
       pkgs.bcftools
+      pkgs.bitwarden-cli
       pkgs.binwalk
-      pkgs._1password-cli
+      pkgs.bws
       pkgs.coreutils
-      pkgs.devbox
       pkgs.delta
+      pkgs.devbox
       pkgs.direnv
       pkgs.docker
       pkgs.eza
@@ -207,8 +220,6 @@ in
       pkgs.tealdeer
       pkgs.tio
       pkgs.uv
-      pkgs.watchman
-      pkgs.yazi
       pkgs.zig
       pkgs.zoxide
     ];
