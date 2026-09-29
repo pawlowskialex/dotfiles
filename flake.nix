@@ -30,6 +30,10 @@
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    pocket-agent = {
+      url = "github:pawlowskialex/pocket-agent";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -39,6 +43,7 @@
       darwin,
       home-manager,
       treefmt-nix,
+      pocket-agent,
       ...
     }:
     let
@@ -52,6 +57,7 @@
           inherit system;
           modules = [
             home-manager.darwinModules.home-manager
+            pocket-agent.darwinModules.default
             ./darwin.nix
           ];
           specialArgs = { inherit inputs nixpkgs; };

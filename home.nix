@@ -19,7 +19,9 @@
       ];
       settings = {
         "*" = {
-          IdentityAgent = "\"~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
+          # pocket-agent: keys on the phone are signed there; anything else is
+          # forwarded to the 1Password agent (see services.pocket-agent in darwin.nix).
+          IdentityAgent = "~/.pocket-agent/agent.sock";
         };
         "*.github.com" = {
           HostName = "%h";
