@@ -21,22 +21,6 @@
         "type": "github"
       }
     },
-    "fish-ai": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1790657018,
-        "narHash": "sha256-EmBRXPEkke33gCUTPgNeEQYf4H0ViLI8tvT/VwAfMhA=",
-        "owner": "Realiserad",
-        "repo": "fish-ai",
-        "rev": "5994f74cabfc6a0f6e5418e6202904cd2616e62e",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Realiserad",
-        "repo": "fish-ai",
-        "type": "github"
-      }
-    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -97,7 +81,6 @@
     "root": {
       "inputs": {
         "darwin": "darwin",
-        "fish-ai": "fish-ai",
         "home-manager": "home-manager",
         "nixpkgs": "nixpkgs",
         "pocket-agent": "pocket-agent",
