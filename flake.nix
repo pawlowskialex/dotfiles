@@ -30,6 +30,10 @@
       url = "github:pawlowskialex/pocket-agent";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-rosetta-builder = {
+      url = "github:cpick/nix-rosetta-builder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -40,6 +44,7 @@
       home-manager,
       treefmt-nix,
       pocket-agent,
+      nix-rosetta-builder,
       ...
     }:
     let
@@ -54,6 +59,7 @@
           modules = [
             home-manager.darwinModules.home-manager
             pocket-agent.darwinModules.default
+            nix-rosetta-builder.darwinModules.default
             ./darwin.nix
           ];
           specialArgs = { inherit inputs nixpkgs; };

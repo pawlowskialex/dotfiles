@@ -10,6 +10,7 @@ in
     ./modules/darwin/packages.nix
     ./modules/darwin/shells.nix
     ./modules/darwin/services.nix
+    ./modules/darwin/linux-builder.nix
   ];
 
   # Hand `identity` to every darwin module imported above.
