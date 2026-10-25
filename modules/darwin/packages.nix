@@ -7,8 +7,6 @@
     pkgs.bazelisk
     pkgs.bcftools
     pkgs.binwalk
-    pkgs.bitwarden-cli
-    pkgs.bws
     pkgs.codex
     pkgs.coreutils
     pkgs.delta
@@ -58,7 +56,6 @@
     # handled by the `trusted: true` nix-darwin puts on every cask line.
     taps = [
       "abue-ammar/tinycast"
-      "stablyai/orca"
     ];
 
     # Not in nixpkgs. A much faster xip(1) for unpacking Xcode.
@@ -70,7 +67,6 @@
       "apparency"
       "balenaetcher"
       "betterdisplay"
-      "bitwarden"
       "blackhole-16ch"
       "blackhole-2ch"
       "brave-browser"
@@ -87,11 +83,11 @@
       "orcaslicer"
       "qlmarkdown"
       "quicklook-video"
+      "paseo"
       "setapp"
       "signal"
       "slack"
       "spotify"
-      "stablyai/orca/orca"
       "steermouse"
       "suspicious-package"
       "syntax-highlight"
