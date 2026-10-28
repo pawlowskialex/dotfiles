@@ -1,4 +1,4 @@
-{ identity, ... }:
+{ identity, pkgs, ... }:
 {
   programs = {
     ssh = {
@@ -34,6 +34,22 @@
         column.ui = "auto";
         branch.sort = "-committerdate";
         fetch.prune = true;
+
+        # Fetch GitHub over HTTPS (gh token) and only push over SSH, so
+        # background fetches (e.g. Paseo's every-3-minutes `git fetch`) don't
+        # ask pocket-agent for a signature.
+        url."https://github.com/".insteadOf = [
+          "git@github.com:"
+          "ssh://git@github.com/"
+        ];
+        url."git@github.com:".pushInsteadOf = [
+          "git@github.com:"
+          "ssh://git@github.com/"
+        ];
+        credential."https://github.com".helper = [
+          ""
+          "!${pkgs.gh}/bin/gh auth git-credential"
+        ];
       };
     };
 
