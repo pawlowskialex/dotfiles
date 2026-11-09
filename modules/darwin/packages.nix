@@ -7,16 +7,15 @@
     pkgs.bazelisk
     pkgs.bcftools
     pkgs.binwalk
-    pkgs.codex
     pkgs.coreutils
     pkgs.delta
-    pkgs.devbox
     pkgs.direnv
     pkgs.docker
     pkgs.eza
     pkgs.fd
     pkgs.fzf
     pkgs.gh
+    pkgs.ghidra
     pkgs.git
     pkgs.git-lfs
     pkgs.go
@@ -56,16 +55,15 @@
     # handled by the `trusted: true` nix-darwin puts on every cask line.
     taps = [
       "abue-ammar/tinycast"
+      "anomalyco/tap"
     ];
 
-    # Not in nixpkgs. A much faster xip(1) for unpacking Xcode.
-    brews = [ "unxip" ];
+    brews = [ "anomalyco/tap/opencode-v2" ];
 
     casks = [
       "1password@beta"
       "abue-ammar/tinycast/tinycast"
       "apparency"
-      "balenaetcher"
       "betterdisplay"
       "blackhole-16ch"
       "blackhole-2ch"
@@ -74,7 +72,6 @@
       "claude"
       "font-iosevka-nerd-font"
       "ghostty"
-      "handbrake-app"
       "hex-fiend"
       "hopper-disassembler"
       "karabiner-elements"
@@ -86,7 +83,6 @@
       "paseo"
       "setapp"
       "signal"
-      "slack"
       "spotify"
       "steermouse"
       "suspicious-package"
@@ -94,7 +90,6 @@
       "tailscale-app"
       "telegram"
       "utm"
-      "visual-studio-code"
       "xcodes-app"
       "zed"
     ];
