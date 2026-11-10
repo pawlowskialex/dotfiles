@@ -30,6 +30,7 @@
     pkgs.nixfmt
     pkgs.nixpacks
     pkgs.nodejs_24
+    (pkgs.callPackage ../../pkgs/pcb.nix { })
     pkgs.python3
     pkgs.ripgrep
     pkgs.rustup
@@ -54,7 +55,6 @@
     # references it, so these are documentation more than necessity. Trust is
     # handled by the `trusted: true` nix-darwin puts on every cask line.
     taps = [
-      "abue-ammar/tinycast"
       "anomalyco/tap"
     ];
 
@@ -62,25 +62,25 @@
 
     casks = [
       "1password@beta"
-      "abue-ammar/tinycast/tinycast"
       "apparency"
       "betterdisplay"
       "blackhole-16ch"
       "blackhole-2ch"
       "brave-browser"
-      "claude-code@latest"
       "claude"
+      "claude-code@latest"
       "font-iosevka-nerd-font"
       "ghostty"
       "hex-fiend"
       "hopper-disassembler"
       "karabiner-elements"
       "keka"
+      "kicad"
       "orbstack"
       "orcaslicer"
+      "paseo"
       "qlmarkdown"
       "quicklook-video"
-      "paseo"
       "setapp"
       "signal"
       "spotify"
@@ -89,6 +89,7 @@
       "syntax-highlight"
       "tailscale-app"
       "telegram"
+      "tinycast"
       "utm"
       "xcodes-app"
       "zed"
