@@ -1,23 +1,17 @@
 { pkgs, ... }:
 {
+  # Tools home-manager configures (programs.* in modules/home) are installed
+  # there, not here.
   environment.systemPackages = [
     pkgs._1password-cli
-    pkgs.atuin
-    pkgs.bat
     pkgs.bazelisk
     pkgs.bcftools
     pkgs.binwalk
     pkgs.coreutils
-    pkgs.delta
-    pkgs.direnv
     pkgs.docker
-    pkgs.eza
     pkgs.fd
-    pkgs.fzf
     pkgs.gh
     pkgs.ghidra
-    pkgs.git
-    pkgs.git-lfs
     pkgs.go
     pkgs.helix
     pkgs.htslib
@@ -25,7 +19,6 @@
     pkgs.jq
     pkgs.just
     pkgs.lazygit
-    pkgs.mise
     pkgs.nixd
     pkgs.nixfmt
     pkgs.nixpacks
@@ -34,12 +27,10 @@
     pkgs.python3
     pkgs.ripgrep
     pkgs.rustup
-    pkgs.starship
     pkgs.tealdeer
     pkgs.tio
     pkgs.uv
     pkgs.zig
-    pkgs.zoxide
   ];
 
   homebrew = {
