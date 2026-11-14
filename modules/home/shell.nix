@@ -1,14 +1,12 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+{ lib, pkgs, ... }:
 
 let
-  # Coding agents run commands through these shells, and should get plain `ls`
-  # and `cat`, not eza and bat. Claude Code and OpenCode mark their shells
-  # (OpenCode's have a terminal); other agents' have none on stdin.
+  # Coding agents run commands through these shells. They get PATH and
+  # nothing interactive: no aliases (plain `ls`, `cat`), prompt or key
+  # bindings, no atuin recording their commands into the history, no zoxide
+  # learning their directories, no direnv (`direnv exec . cmd` instead).
+  # Claude Code and OpenCode mark their shells (OpenCode's have a terminal);
+  # other agents' have none on stdin.
   agentMarkers = [
     "CLAUDECODE"
     "OPENCODE_TERMINAL"
@@ -17,30 +15,27 @@ let
   isAgentFish = lib.concatMapStrings (v: "set -q ${v}; or ") agentMarkers + "not isatty stdin";
 in
 {
-  # PATH for every shell is modules/darwin/shells.nix.
+  # PATH for every shell is modules/darwin/shells.nix. For agents each rc file
+  # stops right after it.
   programs = {
-    # Unaliasing goes after the aliases every integration (eza, ...) adds.
     bash = {
       enable = true;
-      initExtra = lib.mkAfter "if ${isAgentPosix}; then unalias -a; fi";
+      bashrcExtra = lib.mkAfter "if ${isAgentPosix}; then return; fi";
     };
     zsh = {
       enable = true;
-      initContent = lib.mkOrder 2000 "if ${isAgentPosix}; then unalias -m '*'; fi";
+      initContent = lib.mkBefore "if ${isAgentPosix}; then return; fi";
     };
 
     fish = {
       enable = true;
+      shellInit = "if ${isAgentFish}; return; end";
       shellAliases = {
         cat = "${pkgs.bat}/bin/bat";
         tree = "${pkgs.eza}/bin/eza --tree --icons";
       };
-      # fish's aliases are functions, so erase them by name.
       interactiveShellInit = ''
         bind \co 'zi; commandline -f repaint'
-        if ${isAgentFish}
-            functions --erase ${lib.concatStringsSep " " (lib.attrNames config.programs.fish.shellAliases)}
-        end
       '';
     };
 
@@ -137,6 +132,11 @@ in
       };
     };
   };
+
+  # Shadows direnv's own vendor_conf.d/direnv.fish, which hooks every fish
+  # shell before config.fish runs, agents' included. Home Manager hooks the
+  # interactive ones in config.fish.
+  xdg.configFile."fish/conf.d/direnv.fish".text = "";
 
   xdg.configFile."fish/conf.d/tokyonight.fish".text = ''
     # TokyoNight Night
