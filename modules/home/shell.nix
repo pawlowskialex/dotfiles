@@ -1,20 +1,31 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
+
+let
+  # Tools that install themselves outside Nix, in front of the Nix profiles.
+  userPaths = [
+    "$HOME/.cargo/bin"
+    "$HOME/.lmstudio/bin"
+    "$HOME/go/bin"
+  ];
+in
 {
   programs = {
     bash = {
       enable = true;
-      # Above .bashrc's interactive-only return, so non-interactive shells get
-      # it too: Claude Code's Bash tool, and anything else running `bash -c`.
-      # /etc/bashrc returns before its PATH setup for those, so without this
-      # they'd have no Homebrew, mise or /etc/paths.d. Matches what fish sets
-      # up: mise shims, Homebrew, fish's shellInit dirs, then the Nix profiles,
-      # with OrbStack last as its own init does.
+      # bash's whole environment lives here; /etc/bashrc only sources
+      # nix-darwin's set-environment. This sits above .bashrc's
+      # interactive-only return, so non-interactive shells get it too (Claude
+      # Code's Bash tool, anything running `bash -c`). Same PATH fish ends up
+      # with: mise shims, Homebrew, userPaths, the Nix profiles, the rest of
+      # /etc/paths and /etc/paths.d, then OrbStack as its own init has it.
       bashrcExtra = ''
+        # path_helper puts /etc/paths first and pushes the per-user Nix
+        # profiles back, so move them to the front again.
         if [ -x /usr/libexec/path_helper ]; then
           eval "$(/usr/libexec/path_helper -s)"
         fi
         PATH="$HOME/.nix-profile/bin:/etc/profiles/per-user/$USER/bin:$PATH"
-        PATH="$HOME/.cargo/bin:$HOME/.lmstudio/bin:$HOME/go/bin:$PATH"
+        PATH="${lib.concatStringsSep ":" userPaths}:$PATH"
         if [ -x /opt/homebrew/bin/brew ]; then
           eval "$(/opt/homebrew/bin/brew shellenv bash)"
         fi
@@ -43,9 +54,7 @@
         tree = "${pkgs.eza}/bin/eza --tree --icons";
       };
       shellInit = ''
-        fish_add_path ~/.lmstudio/bin
-        fish_add_path ~/go/bin
-        fish_add_path ~/.cargo/bin
+        fish_add_path ${lib.concatMapStringsSep " " (p: ''"${p}"'') userPaths}
       '';
       interactiveShellInit = ''
         /opt/homebrew/bin/brew shellenv fish | source

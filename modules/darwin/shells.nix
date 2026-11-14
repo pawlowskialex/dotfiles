@@ -56,27 +56,10 @@ in
   # whatever else was already in PATH, which is where the per-user profiles
   # would end up. Each shell moves them back to the front in its own idiom.
   programs = {
-    bash = {
-      enable = true;
-      # The stock /etc/profile already ran path_helper, but nix-darwin's
-      # /etc/bashrc then re-exports PATH from setEnvironment, dropping
-      # /etc/paths.d again. Run it once more; it is idempotent.
-      interactiveShellInit = ''
-        if [ -x /usr/libexec/path_helper ]; then
-          eval "$(/usr/libexec/path_helper -s)"
-          IFS=: read -ra __nix_dirs <<< "${perUserPathColon}:$PATH"
-          PATH=
-          for __nix_dir in "''${__nix_dirs[@]}"; do
-            case ":$PATH:" in
-              *":$__nix_dir:"*) ;;
-              *) PATH="''${PATH:+$PATH:}$__nix_dir" ;;
-            esac
-          done
-          unset __nix_dirs __nix_dir
-        fi
-      ''
-      + commonShellInit "bash";
-    };
+    # Only for /etc/bashrc's set-environment. The rest of bash's setup is
+    # home-manager's .bashrc (modules/home/shell.nix), which non-interactive
+    # shells read too.
+    bash.enable = true;
 
     zsh = {
       enable = true;
