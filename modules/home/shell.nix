@@ -1,9 +1,33 @@
-{ pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+
+let
+  # Coding agents run commands through these shells, and should get plain `ls`
+  # and `cat`, not eza and bat. Claude Code and OpenCode mark their shells
+  # (OpenCode's have a terminal); other agents' have none on stdin.
+  agentMarkers = [
+    "CLAUDECODE"
+    "OPENCODE_TERMINAL"
+  ];
+  isAgentPosix = ''[ -n "${lib.concatMapStrings (v: "\${${v}-}") agentMarkers}" ] || [ ! -t 0 ]'';
+  isAgentFish = lib.concatMapStrings (v: "set -q ${v}; or ") agentMarkers + "not isatty stdin";
+in
 {
   # PATH for every shell is modules/darwin/shells.nix.
   programs = {
-    bash.enable = true;
-    zsh.enable = true;
+    # Unaliasing goes after the aliases every integration (eza, ...) adds.
+    bash = {
+      enable = true;
+      initExtra = lib.mkAfter "if ${isAgentPosix}; then unalias -a; fi";
+    };
+    zsh = {
+      enable = true;
+      initContent = lib.mkOrder 2000 "if ${isAgentPosix}; then unalias -m '*'; fi";
+    };
 
     fish = {
       enable = true;
@@ -11,8 +35,12 @@
         cat = "${pkgs.bat}/bin/bat";
         tree = "${pkgs.eza}/bin/eza --tree --icons";
       };
+      # fish's aliases are functions, so erase them by name.
       interactiveShellInit = ''
         bind \co 'zi; commandline -f repaint'
+        if ${isAgentFish}
+            functions --erase ${lib.concatStringsSep " " (lib.attrNames config.programs.fish.shellAliases)}
+        end
       '';
     };
 
