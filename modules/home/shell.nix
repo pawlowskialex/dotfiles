@@ -1,7 +1,39 @@
 { pkgs, ... }:
 {
   programs = {
-    bash.enable = true;
+    bash = {
+      enable = true;
+      # Above .bashrc's interactive-only return, so non-interactive shells get
+      # it too: Claude Code's Bash tool, and anything else running `bash -c`.
+      # /etc/bashrc returns before its PATH setup for those, so without this
+      # they'd have no Homebrew, mise or /etc/paths.d. Matches what fish sets
+      # up: mise shims, Homebrew, fish's shellInit dirs, then the Nix profiles,
+      # with OrbStack last as its own init does.
+      bashrcExtra = ''
+        if [ -x /usr/libexec/path_helper ]; then
+          eval "$(/usr/libexec/path_helper -s)"
+        fi
+        PATH="$HOME/.nix-profile/bin:/etc/profiles/per-user/$USER/bin:$PATH"
+        PATH="$HOME/.cargo/bin:$HOME/.lmstudio/bin:$HOME/go/bin:$PATH"
+        if [ -x /opt/homebrew/bin/brew ]; then
+          eval "$(/opt/homebrew/bin/brew shellenv bash)"
+        fi
+        PATH="''${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims:$PATH:$HOME/.orbstack/bin"
+
+        # Inherited PATHs (and running twice, as a login shell does via
+        # .bash_profile) leave duplicates; keep each entry's first place.
+        __path=
+        IFS=: read -ra __dirs <<< "$PATH"
+        for __dir in "''${__dirs[@]}"; do
+          case ":$__path:" in
+            *":$__dir:"*) ;;
+            *) __path="''${__path:+$__path:}$__dir" ;;
+          esac
+        done
+        export PATH="$__path"
+        unset __path __dirs __dir
+      '';
+    };
     zsh.enable = true;
 
     fish = {

@@ -8,14 +8,19 @@
   # Claude Code rewrites ~/.claude/settings.json itself (and so do hook
   # installers like Orca), so merge keys in rather than owning the file.
   # Empty attribution strings drop the Co-Authored-By trailer from commits and
-  # the "Generated with Claude Code" footer from PRs.
+  # the "Generated with Claude Code" footer from PRs. The login shell is fish,
+  # which Claude Code doesn't run commands in, so it falls back to zsh; pin
+  # Nix's bash 5 instead (not macOS's 3.2). Its PATH comes from .bashrc's
+  # bashrcExtra (modules/home/shell.nix).
   home.activation.claudeCodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settings="$HOME/.claude/settings.json"
     run mkdir -p "$HOME/.claude"
     [ -s "$settings" ] || echo '{}' > "$settings"
     tmp="$(mktemp)"
-    ${pkgs.jq}/bin/jq '. + {attribution: {commit: "", pr: ""}, includeCoAuthoredBy: false}' \
-      "$settings" > "$tmp" && run mv "$tmp" "$settings"
+    ${pkgs.jq}/bin/jq '
+      . + {attribution: {commit: "", pr: ""}, includeCoAuthoredBy: false}
+      | .env = ((.env // {}) + {CLAUDE_CODE_SHELL: "/run/current-system/sw/bin/bash"})
+    ' "$settings" > "$tmp" && run mv "$tmp" "$settings"
   '';
 
   programs = {
