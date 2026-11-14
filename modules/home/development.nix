@@ -10,8 +10,8 @@
   # Empty attribution strings drop the Co-Authored-By trailer from commits and
   # the "Generated with Claude Code" footer from PRs. The login shell is fish,
   # which Claude Code doesn't run commands in, so it falls back to zsh; pin
-  # Nix's bash 5 instead (not macOS's 3.2). Its PATH comes from .bashrc's
-  # bashrcExtra (modules/home/shell.nix).
+  # Nix's bash 5 instead (not macOS's 3.2); its PATH is set up in
+  # modules/darwin/shells.nix.
   home.activation.claudeCodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     settings="$HOME/.claude/settings.json"
     run mkdir -p "$HOME/.claude"
