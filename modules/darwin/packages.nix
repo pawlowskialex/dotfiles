@@ -27,6 +27,7 @@
     pkgs.python3
     pkgs.ripgrep
     pkgs.rustup
+    pkgs.samtools
     pkgs.tealdeer
     pkgs.tio
     pkgs.uv

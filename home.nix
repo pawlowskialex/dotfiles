@@ -2,6 +2,7 @@ _: {
   imports = [
     ./modules/home/shell.nix
     ./modules/home/development.nix
+    ./modules/home/agents.nix
     ./modules/home/desktop.nix
   ];
 

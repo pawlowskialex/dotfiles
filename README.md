@@ -20,6 +20,7 @@ nix-darwin + home-manager configuration for my Mac (aarch64-darwin).
 - `modules/home/`
   - `shell.nix` — fish, starship, atuin, fzf, eza, yazi, ...
   - `development.nix` — git, ssh, delta, lazygit, helix, Claude Code settings
+  - `agents.nix` — global instructions for Claude Code and OpenCode
   - `desktop.nix` — Ghostty, Karabiner-Elements rules
 - `pkgs/` — packages not in nixpkgs
 
