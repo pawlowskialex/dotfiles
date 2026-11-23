@@ -40,5 +40,8 @@ _: {
     };
 
     screencapture.location = "~/Desktop";
+
+    # Siri off (System Settings > Siri). The rest of Siri's state is derived from this.
+    CustomUserPreferences."com.apple.assistant.support"."Assistant Enabled" = false;
   };
 }
